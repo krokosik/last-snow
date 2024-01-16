@@ -10,7 +10,39 @@ use std::{env, fs, path::PathBuf};
 use dirs::public_dir;
 use chrono::Utc;
 use csv;
-use crate::store::{Store, StoreBuilder};
+use crate::store::StoreBuilder;
+use log::LevelFilter;
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub enum Languages {
+    EN,
+    JP,
+    CN,
+    KR,
+    ES,
+    FR,
+    IT,
+    DE,
+    RU,
+    PL,
+}
+
+impl Languages {
+    pub fn value(&self) -> &'static str {
+        match self {
+            Languages::EN => "xkb:us::eng",
+            Languages::JP => "anthy",
+            Languages::CN => "libpinyin",
+            Languages::KR => "hangul",
+            Languages::ES => "xkb:es::spa",
+            Languages::FR => "xkb:fr::fra",
+            Languages::IT => "xkb:it::ita",
+            Languages::DE => "xkb:de::deu",
+            Languages::RU => "xkb:ru::rus",
+            Languages::PL => "xkb:pl::pol",
+        }
+    }
+}
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct Row {
@@ -224,10 +256,28 @@ fn handle_packet(packet: OscPacket) {
     }
 }
 
+fn setup_logger() -> Result<(), fern::InitError> {
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "{}[{}][{}] {}",
+                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .level(LevelFilter::Debug)
+        .chain(std::io::stdout())
+        .chain(fern::log_file(public_dir().unwrap().join("output.log"))?)
+        .apply()?;
+    Ok(())
+}
 
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
 
+    setup_logger().unwrap();
     let mut store = StoreBuilder::new(".settings".into()).build();
 
     store.load().unwrap_or_else(|e| {
@@ -277,9 +327,8 @@ fn main() -> Result<(), slint::PlatformError> {
     });
 
     let ui_handle = ui.as_weak();
-    ui.on_request_increase_value(move || {
-        let ui = ui_handle.unwrap();
-        ui.set_counter(ui.get_counter() + 1);
+    ui.on_submit_text(|text| {
+        submit_sentence("en", text.as_str()).unwrap();
     });
 
     ui.run()

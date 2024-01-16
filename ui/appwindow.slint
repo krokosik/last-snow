@@ -9,8 +9,10 @@ export component CenterBox inherits VerticalBox {
 }
 
 export component AppWindow inherits Window {
-    in-out property<int> counter: 42;
-    callback request-increase-value();
+    in property<[string]> languages;
+    in-out property <string> selected-language;
+    callback select-language(string);
+    callback submit-text(string);
 
     width: 1280px;
     height: 400px;
@@ -23,7 +25,7 @@ export component AppWindow inherits Window {
                 y: 0px;
                 width: self.preferred-width;
                 height: self.preferred-height;
-                model: ["first", "second", "third"];
+                model: root.languages;
                 current-value: "first";
             }
         }
@@ -47,7 +49,7 @@ export component AppWindow inherits Window {
                 Button {
                     width: 75px;
                     height: 75px;
-                    text: "DE";
+                    text: "Clear";
                 }
             }
             submit_button := HorizontalBox {
@@ -55,7 +57,11 @@ export component AppWindow inherits Window {
                 Button {
                     width: 75px;
                     height: 75px;
-                    text: "DE";
+                    text: "Submit";
+                    clicked => {
+                        root.submit-text(input.text);
+                        input.text = "";
+                    }
                 }
             }
         }
