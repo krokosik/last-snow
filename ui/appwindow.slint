@@ -1,0 +1,64 @@
+import { Button, VerticalBox , TextEdit, HorizontalBox, ComboBox} from "std-widgets.slint";
+
+export component CenterBox inherits VerticalBox {
+    alignment: center;
+    HorizontalBox {
+        alignment: center;
+        @children
+    }
+}
+
+export component AppWindow inherits Window {
+    in-out property<int> counter: 42;
+    callback request-increase-value();
+
+    width: 1280px;
+    height: 400px;
+
+    HorizontalLayout {
+        CenterBox {
+            horizontal-stretch: 0;
+            width: 150px;
+            ComboBox {
+                y: 0px;
+                width: self.preferred-width;
+                height: self.preferred-height;
+                model: ["first", "second", "third"];
+                current-value: "first";
+            }
+        }
+        HorizontalBox {
+            input := TextEdit {
+                text: "Search";
+    
+                init => {
+                    input.focus();
+                }
+            }
+
+        }
+        VerticalBox {
+            alignment: space-around;
+            horizontal-stretch: 0;
+            width: 150px;
+
+            HorizontalBox {
+                alignment: center;
+                Button {
+                    width: 75px;
+                    height: 75px;
+                    text: "DE";
+                }
+            }
+            submit_button := HorizontalBox {
+                alignment: center;
+                Button {
+                    width: 75px;
+                    height: 75px;
+                    text: "DE";
+                }
+            }
+        }
+
+    }
+}
