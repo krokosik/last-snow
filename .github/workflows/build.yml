@@ -35,7 +35,7 @@ jobs:
 
       - name: Prepare for packaging
         run: |
-          mdkir -p .debpkg/usr/bin
+          mkdir -p .debpkg/usr/bin
           mkdir -p .debpkg/usr/lib/last-snow
           cp target/aarch64-unknown-linux-gnu/release/last-snow .debpkg/usr/bin/last-snow
         

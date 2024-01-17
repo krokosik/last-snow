@@ -270,11 +270,13 @@ fn handle_packet(packet: OscPacket, ui_handle: Weak<AppWindow>) {
                         .unwrap_or_else(|e| {
                             log::error!("Error inserting max_characters: {}", e);
                         });
-                    ui_handle.upgrade_in_event_loop(move |handle| {
-                        handle.set_character_limit(max_characters)
-                    }).unwrap_or_else(|e| {
-                        log::error!("Error setting character limit: {}", e);
-                    })
+                    ui_handle
+                        .upgrade_in_event_loop(move |handle| {
+                            handle.set_character_limit(max_characters)
+                        })
+                        .unwrap_or_else(|e| {
+                            log::error!("Error setting character limit: {}", e);
+                        })
                 }
                 ("/max_sentences_per_csv", [OscType::Int(max_sentences_per_csv)]) => {
                     store
@@ -438,7 +440,8 @@ fn main() -> Result<(), slint::PlatformError> {
     let ui_handle = ui.as_weak();
     thread::spawn(move || {
         // Bind the UDP socket to listen on port 7000
-        let socket = UdpSocket::bind("last-snow.local:7000").unwrap();
+        let socket = UdpSocket::bind("last-snow.local:7000")
+            .unwrap_or_else(|| UdpSocket::bind("127.0.0.1:7000").unwrap());
         log::info!("Listening on {}", socket.local_addr().unwrap());
 
         let mut buf = [0u8; rosc::decoder::MTU];
@@ -462,6 +465,5 @@ fn main() -> Result<(), slint::PlatformError> {
         submit_sentence("en", text.as_str()).unwrap();
     });
 
-    
     ui.run()
 }
