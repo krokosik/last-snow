@@ -16,7 +16,7 @@ log = "0.4.20"
 rosc = "0.10.1"
 serde = { version = "1.0.195", features = ["derive"] }
 serde_json = "1.0.111"
-slint = { version = "1.4", git = "https://github.com/slint-ui/slint", branch = "master", features = ["software-renderer-systemfonts"] }
+slint = { version = "1.4", git = "https://github.com/slint-ui/slint", branch = "master", features = ["software-renderer-systemfonts", "renderer-skia", "backend-winit-x11"] }
 strum = "0.25.0"
 strum_macros = "0.25.3"
 
