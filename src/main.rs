@@ -441,7 +441,7 @@ fn main() -> Result<(), slint::PlatformError> {
     thread::spawn(move || {
         // Bind the UDP socket to listen on port 7000
         let socket = UdpSocket::bind("last-snow.local:7000")
-            .unwrap_or_else(|| UdpSocket::bind("127.0.0.1:7000").unwrap());
+            .unwrap_or_else(|_| UdpSocket::bind("127.0.0.1:7000").unwrap());
         log::info!("Listening on {}", socket.local_addr().unwrap());
 
         let mut buf = [0u8; rosc::decoder::MTU];
