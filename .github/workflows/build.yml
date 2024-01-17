@@ -24,7 +24,16 @@ jobs:
           targets: aarch64-unknown-linux-gnu
 
       - name: Rust cache
-        uses: swatinem/rust-cache@v2
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/            
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Build target
         uses: actions-rs/cargo@v1
