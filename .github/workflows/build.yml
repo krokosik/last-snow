@@ -36,15 +36,20 @@ jobs:
           args: --release --target aarch64-unknown-linux-gnu
         
       - name: Package
-        shell: bash
-        run: |
-          cd target/aarch64-unknown-linux-gnu/release          
-          tar czvf ../../../last-snow.tar.gz last-snow
-          cd -
+        id: package
+        uses: jiro4989/build-deb-action@v3
+        with:
+          package: last-snow
+          package_root: target/aarch64-unknown-linux-gnu/release
+          maintainer: krokosik
+          version: ${{ github.ref }} # refs/tags/v*.*.*
+          arch: 'arm64'
+          depends: 'libxcb-shape0-dev, libxcb-xfixes0-dev, libxkbcommon-dev, libfontconfig-dev, clang, libavcodec-dev, libavformat-dev, libavutil-dev, libavfilter-dev, libavdevice-dev, libasound2-dev, pkg-config'
+          desc: 'Last Snow Input + Display'
 
       - name: Publish
         uses: softprops/action-gh-release@v1
         with:
-            files: 'last-snow*'
+            files: ${{ steps.package.outputs.file_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
