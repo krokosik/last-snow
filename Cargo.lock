@@ -2238,6 +2238,8 @@ dependencies = [
  "serde_json",
  "slint",
  "slint-build",
+ "strum",
+ "strum_macros",
 ]
 
 [[package]]

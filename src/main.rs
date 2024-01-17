@@ -2,18 +2,23 @@ slint::include_modules!();
 
 mod store;
 
-use rosc::{OscPacket, OscType};
-use serde_json::json;
-use std::net::UdpSocket;
-use std::thread;
-use std::{env, fs, path::PathBuf};
-use dirs::public_dir;
+use crate::store::StoreBuilder;
 use chrono::Utc;
 use csv;
-use crate::store::StoreBuilder;
+use dirs::public_dir;
 use log::LevelFilter;
+use rosc::{OscPacket, OscType};
+use serde_json::json;
+use slint::{ModelRc, VecModel};
+use std::net::UdpSocket;
+use std::process::Command;
+use std::rc::Rc;
+use std::str::FromStr;
+use std::thread;
+use std::{env, fs, path::PathBuf};
+use strum::IntoEnumIterator;
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, strum_macros::EnumIter)]
 pub enum Languages {
     EN,
     JP,
@@ -40,6 +45,59 @@ impl Languages {
             Languages::DE => "xkb:de::deu",
             Languages::RU => "xkb:ru::rus",
             Languages::PL => "xkb:pl::pol",
+        }
+    }
+
+    pub fn from_value(value: &str) -> Option<Languages> {
+        match value {
+            "xkb:us::eng" => Some(Languages::EN),
+            "anthy" => Some(Languages::JP),
+            "libpinyin" => Some(Languages::CN),
+            "hangul" => Some(Languages::KR),
+            "xkb:es::spa" => Some(Languages::ES),
+            "xkb:fr::fra" => Some(Languages::FR),
+            "xkb:it::ita" => Some(Languages::IT),
+            "xkb:de::deu" => Some(Languages::DE),
+            "xkb:ru::rus" => Some(Languages::RU),
+            "xkb:pl::pol" => Some(Languages::PL),
+            _ => None,
+        }
+    }
+}
+
+impl FromStr for Languages {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "EN" => Ok(Languages::EN),
+            "JP" => Ok(Languages::JP),
+            "CN" => Ok(Languages::CN),
+            "KR" => Ok(Languages::KR),
+            "ES" => Ok(Languages::ES),
+            "FR" => Ok(Languages::FR),
+            "IT" => Ok(Languages::IT),
+            "DE" => Ok(Languages::DE),
+            "RU" => Ok(Languages::RU),
+            "PL" => Ok(Languages::PL),
+            _ => Err(()),
+        }
+    }
+}
+
+impl ToString for Languages {
+    fn to_string(&self) -> String {
+        match self {
+            Languages::EN => "EN".to_string(),
+            Languages::JP => "JP".to_string(),
+            Languages::CN => "CN".to_string(),
+            Languages::KR => "KR".to_string(),
+            Languages::ES => "ES".to_string(),
+            Languages::FR => "FR".to_string(),
+            Languages::IT => "IT".to_string(),
+            Languages::DE => "DE".to_string(),
+            Languages::RU => "RU".to_string(),
+            Languages::PL => "PL".to_string(),
         }
     }
 }
@@ -130,9 +188,7 @@ fn write_sentence(row: &Row, file_path: &PathBuf, headers: bool) {
 }
 
 fn get_setting_store_path() -> PathBuf {
-    public_dir()
-        .unwrap()
-        .join(".settings")
+    public_dir().unwrap().join(".settings")
 }
 
 fn submit_sentence(language: &str, text: &str) -> Result<(), String> {
@@ -274,6 +330,36 @@ fn setup_logger() -> Result<(), fern::InitError> {
     Ok(())
 }
 
+fn get_ibus_engine_output() -> Result<String, String> {
+    let output = Command::new("ibus")
+        .arg("engine")
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        let output_str = std::str::from_utf8(&output.stdout).unwrap().to_string();
+        Ok(output_str)
+    } else {
+        let error_str = std::str::from_utf8(&output.stderr).unwrap().to_string();
+        Err(error_str)
+    }
+}
+
+fn set_ibus_engine(language: Languages) -> Result<(), String> {
+    let output = Command::new("ibus")
+        .arg("engine")
+        .arg(language.value())
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let error_str = std::str::from_utf8(&output.stderr).unwrap().to_string();
+        Err(error_str)
+    }
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
 
@@ -306,7 +392,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
     thread::spawn(move || {
         // Bind the UDP socket to listen on port 7000
-        let socket = UdpSocket::bind("last-snow.local:7000").unwrap();
+        let socket = UdpSocket::bind("127.0.0.1:7000").unwrap();
         log::info!("Listening on {}", socket.local_addr().unwrap());
 
         let mut buf = [0u8; rosc::decoder::MTU];
@@ -327,7 +413,46 @@ fn main() -> Result<(), slint::PlatformError> {
     });
 
     let ui_handle = ui.as_weak();
+    let model = Rc::new(VecModel::from(
+        Languages::iter()
+            .map(|l| l.to_string().into())
+            .collect::<Vec<_>>(),
+    ));
+    ui.set_languages(ModelRc::from(model.clone()));
+
+    let language = get_ibus_engine_output().unwrap_or_else(|e| {
+        log::error!("Error getting ibus engine output: {}", e);
+        Languages::EN.value().to_string()
+    });
+
+    ui.set_selected_language(
+        Languages::from_value(language.as_str())
+            .unwrap()
+            .to_string()
+            .into(),
+    );
+
+    ui.on_select_language(move |language| {
+        let language = Languages::from_str(language.as_str()).unwrap();
+        set_ibus_engine(language.into()).unwrap_or_else(|e| {
+            log::error!("Error setting ibus engine: {}", e);
+
+            let language = get_ibus_engine_output().unwrap_or_else(|e| {
+                log::error!("Error getting ibus engine output: {}", e);
+                Languages::EN.value().to_string()
+            });
+
+            ui_handle.unwrap().set_selected_language(
+                Languages::from_value(language.as_str())
+                    .unwrap()
+                    .to_string()
+                    .into(),
+            );
+        });
+    });
+
     ui.on_submit_text(|text| {
+        log::info!("Received text: {}", text);
         submit_sentence("en", text.as_str()).unwrap();
     });
 

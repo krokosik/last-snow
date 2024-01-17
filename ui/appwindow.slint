@@ -19,22 +19,27 @@ export component AppWindow inherits Window {
 
     HorizontalLayout {
         CenterBox {
-            horizontal-stretch: 0;
-            width: 150px;
-            ComboBox {
-                y: 0px;
-                width: self.preferred-width;
-                height: self.preferred-height;
-                model: root.languages;
-                current-value: "first";
-            }
-        }
-        HorizontalBox {
-            input := TextEdit {
-                text: "Search";
+            horizontal-stretch: 1;
+            tab-suppressor := FocusScope {
+                input := TextEdit {
+                    height: 200px;
+                    width: 800px;
     
-                init => {
-                    input.focus();
+                    text: "";
+                    font-size: 40px;
+        
+                    init => {
+                        input.focus();
+                    }
+                    forward-focus: tab-suppressor;
+                }
+                key-pressed(event) => {
+                    debug(event.text);
+                    if (event.text == Key.Tab) {
+                        reject
+                    } else {
+                        accept
+                    }
                 }
             }
 
@@ -45,11 +50,29 @@ export component AppWindow inherits Window {
             width: 150px;
 
             HorizontalBox {
+                horizontal-stretch: 0;
+                alignment: center;
+                ComboBox {
+                    height: 30px;
+                    width: 100px;
+                    model: root.languages;
+                    current-value: root.selected-language;
+                    selected(value) => {
+                        root.select-language(value);
+                    }
+                }
+            }
+
+            HorizontalBox {
                 alignment: center;
                 Button {
                     width: 75px;
                     height: 75px;
                     text: "Clear";
+
+                    clicked => {
+                        input.text = "";
+                    }
                 }
             }
             submit_button := HorizontalBox {
@@ -58,9 +81,12 @@ export component AppWindow inherits Window {
                     width: 75px;
                     height: 75px;
                     text: "Submit";
+                    enabled: input.text != "";
                     clicked => {
-                        root.submit-text(input.text);
-                        input.text = "";
+                        if (input.text != "") {
+                            root.submit-text(input.text);
+                            input.text = "";
+                        }
                     }
                 }
             }

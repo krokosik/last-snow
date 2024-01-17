@@ -1,0 +1,50 @@
+name: Release
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Build target
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target aarch64-unknown-linux-gnu
+        
+      - name: Package
+        shell: bash
+        run: |
+          cd target/aarch64-unknown-linux-gnu/release          
+          tar czvf ../../../last-snow.tar.gz last-snow
+          cd -
+
+      - name: Publish
+        uses: softprops/action-gh-release@v1
+        with:
+            files: 'last-snow*'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
