@@ -408,7 +408,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
     ui.set_selected_language(
         Languages::from_value(language.as_str())
-            .unwrap()
+            .unwrap_or(Languages::EN)
             .to_string()
             .into(),
     );
