@@ -417,18 +417,6 @@ fn main() -> Result<(), slint::PlatformError> {
         let language = Languages::from_str(language.as_str()).unwrap();
         set_ibus_engine(language.into()).unwrap_or_else(|e| {
             log::error!("Error setting ibus engine: {}", e);
-
-            let language = get_ibus_engine_output().unwrap_or_else(|e| {
-                log::error!("Error getting ibus engine output: {}", e);
-                Languages::EN.value().to_string()
-            });
-
-            ui_handle.unwrap().set_selected_language(
-                Languages::from_value(language.as_str())
-                    .unwrap()
-                    .to_string()
-                    .into(),
-            );
         });
     });
 
