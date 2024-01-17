@@ -465,5 +465,7 @@ fn main() -> Result<(), slint::PlatformError> {
         submit_sentence("en", text.as_str()).unwrap();
     });
 
+    ui.window().set_fullscreen(true);
+
     ui.run()
 }
