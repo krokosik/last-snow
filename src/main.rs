@@ -9,7 +9,7 @@ use dirs::public_dir;
 use log::LevelFilter;
 use rosc::{OscPacket, OscType};
 use serde_json::json;
-use slint::{ModelRc, VecModel};
+use slint::{ModelRc, VecModel, Weak};
 use std::net::UdpSocket;
 use std::process::Command;
 use std::rc::Rc;
@@ -187,10 +187,6 @@ fn write_sentence(row: &Row, file_path: &PathBuf, headers: bool) {
     wtr.flush().unwrap();
 }
 
-fn get_setting_store_path() -> PathBuf {
-    public_dir().unwrap().join(".settings")
-}
-
 fn submit_sentence(language: &str, text: &str) -> Result<(), String> {
     let base_dir = public_dir().unwrap();
 
@@ -246,7 +242,7 @@ fn submit_sentence(language: &str, text: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn handle_packet(packet: OscPacket) {
+fn handle_packet(packet: OscPacket, ui_handle: Weak<AppWindow>) {
     let base_dir = public_dir().unwrap();
 
     let mut store = StoreBuilder::new(".settings".into()).build();
@@ -268,15 +264,17 @@ fn handle_packet(packet: OscPacket) {
                         });
                 }
                 ("/max_characters", [OscType::Int(max_characters)]) => {
+                    let max_characters = *max_characters;
                     store
                         .insert("max_characters".to_owned(), json!(max_characters))
                         .unwrap_or_else(|e| {
                             log::error!("Error inserting max_characters: {}", e);
                         });
-                    // app.emit_all("max_characters", max_characters)
-                    //     .unwrap_or_else(|e| {
-                    //         log::error!("Error emitting max_characters: {}", e);
-                    //     });
+                    ui_handle.upgrade_in_event_loop(move |handle| {
+                        handle.set_character_limit(max_characters)
+                    }).unwrap_or_else(|e| {
+                        log::error!("Error setting character limit: {}", e);
+                    })
                 }
                 ("/max_sentences_per_csv", [OscType::Int(max_sentences_per_csv)]) => {
                     store
@@ -306,7 +304,7 @@ fn handle_packet(packet: OscPacket) {
         }
         OscPacket::Bundle(bundle) => {
             for packet in bundle.content {
-                handle_packet(packet);
+                handle_packet(packet, ui_handle.clone());
             }
         }
     }
@@ -390,27 +388,8 @@ fn main() -> Result<(), slint::PlatformError> {
         log::error!("Error saving store: {}", e);
     });
 
-    thread::spawn(move || {
-        // Bind the UDP socket to listen on port 7000
-        let socket = UdpSocket::bind("127.0.0.1:7000").unwrap();
-        log::info!("Listening on {}", socket.local_addr().unwrap());
-
-        let mut buf = [0u8; rosc::decoder::MTU];
-
-        loop {
-            match socket.recv_from(&mut buf) {
-                Ok((size, addr)) => {
-                    log::info!("Received packet with size {} from: {}", size, addr);
-                    let (_, msg) = rosc::decoder::decode_udp(&buf[..size]).unwrap();
-                    handle_packet(msg);
-                }
-                Err(e) => {
-                    log::info!("Error receiving from socket: {}", e);
-                    break;
-                }
-            }
-        }
-    });
+    let max_characters = store.get("max_characters").unwrap().as_i64().unwrap() as i32;
+    ui.set_character_limit(max_characters);
 
     let ui_handle = ui.as_weak();
     let model = Rc::new(VecModel::from(
@@ -451,10 +430,38 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
+    let ui_handle = ui.as_weak();
+    ui.on_text_changed(move |text| {
+        ui_handle.unwrap().set_text_length(text.len() as i32);
+    });
+
+    let ui_handle = ui.as_weak();
+    thread::spawn(move || {
+        // Bind the UDP socket to listen on port 7000
+        let socket = UdpSocket::bind("last-snow.local:7000").unwrap();
+        log::info!("Listening on {}", socket.local_addr().unwrap());
+
+        let mut buf = [0u8; rosc::decoder::MTU];
+
+        loop {
+            match socket.recv_from(&mut buf) {
+                Ok((size, addr)) => {
+                    log::info!("Received packet with size {} from: {}", size, addr);
+                    let (_, msg) = rosc::decoder::decode_udp(&buf[..size]).unwrap();
+                    handle_packet(msg, ui_handle.clone());
+                }
+                Err(e) => {
+                    log::info!("Error receiving from socket: {}", e);
+                    break;
+                }
+            }
+        }
+    });
     ui.on_submit_text(|text| {
         log::info!("Received text: {}", text);
         submit_sentence("en", text.as_str()).unwrap();
     });
 
+    
     ui.run()
 }

@@ -9,40 +9,44 @@ export component CenterBox inherits VerticalBox {
 }
 
 export component AppWindow inherits Window {
+    in-out property <int> text-length;
     in property<[string]> languages;
+    in property <int> character-limit;
     in-out property <string> selected-language;
     callback select-language(string);
     callback submit-text(string);
+    callback text-changed(string);
 
     width: 1280px;
     height: 400px;
+    default-font-size: 16px;
+
+    forward-focus: input;
 
     HorizontalLayout {
         CenterBox {
             horizontal-stretch: 1;
-            tab-suppressor := FocusScope {
+
+            VerticalBox {
                 input := TextEdit {
                     height: 200px;
                     width: 800px;
     
+    
                     text: "";
                     font-size: 40px;
-        
-                    init => {
-                        input.focus();
+                    edited(text) => {
+                        root.text-changed(text);
                     }
-                    forward-focus: tab-suppressor;
                 }
-                key-pressed(event) => {
-                    debug(event.text);
-                    if (event.text == Key.Tab) {
-                        reject
-                    } else {
-                        accept
+                HorizontalBox {
+                    alignment: end;
+                    Text {
+                        text: root.text-length + "/" + root.character-limit;
+                        color: (root.text-length > root.character-limit) ? red : white;
                     }
                 }
             }
-
         }
         VerticalBox {
             alignment: space-around;
@@ -53,7 +57,7 @@ export component AppWindow inherits Window {
                 horizontal-stretch: 0;
                 alignment: center;
                 ComboBox {
-                    height: 30px;
+                    height: 50px;
                     width: 100px;
                     model: root.languages;
                     current-value: root.selected-language;
@@ -66,27 +70,27 @@ export component AppWindow inherits Window {
             HorizontalBox {
                 alignment: center;
                 Button {
-                    width: 75px;
-                    height: 75px;
+                    width: 100px;
+                    height: 100px;
                     text: "Clear";
 
                     clicked => {
                         input.text = "";
+                        text-length = 0;
                     }
                 }
             }
             submit_button := HorizontalBox {
                 alignment: center;
                 Button {
-                    width: 75px;
-                    height: 75px;
+                    width: 100px;
+                    height: 100px;
                     text: "Submit";
-                    enabled: input.text != "";
+                    enabled: input.text != "" && root.text-length <= root.character-limit;
                     clicked => {
-                        if (input.text != "") {
-                            root.submit-text(input.text);
-                            input.text = "";
-                        }
+                        root.submit-text(input.text);
+                        input.text = "";
+                        root.text-length = 0;
                     }
                 }
             }
